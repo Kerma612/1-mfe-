@@ -8,6 +8,15 @@ output: word_document
 library(dplyr)
 library(copula)
 library(readxl)
+library(ggplot2)
+library(urca)
+library(FinTS)
+library(rugarch)
+library(tseries)
+library(scatterplot3d)
+library(MASS)
+library(ADGofTest)
+
 Data <- readxl::read_excel("D:/NEU/TOKT/Bắt buộc/Đề án/Data - Copula.xlsx", 
     col_types = c("date", "numeric", "numeric", 
         "numeric", "numeric", "numeric", 
@@ -15,12 +24,178 @@ Data <- readxl::read_excel("D:/NEU/TOKT/Bắt buộc/Đề án/Data - Copula.xls
 
 Data <- na.omit(Data)
 attach(Data)
-returns <- Data %>% dplyr::select (rBVH,rBMI,rCTG)
-Prices <- Data %>% dplyr::select (pBVH,pBMI,pCTG)
+returns <- Data %>% dplyr::select (rBVH,rBMI)
+Prices <- Data %>% dplyr::select (pBVH,pBMI)
+
+
+n<-length(rBVH)
+pseudoReturns<-apply(returns, 2, rank,ties.method = "random")/(n+1) 
+```
+```{r}
+summary(returns)
+mean <- apply(returns,2,mean)
+sd <- apply(returns,2,sd)
+```
+```{r}
+ggplot( Data,aes(x = Date, y = rBVH)) +
+  geom_line(color = "blue") +
+  theme_minimal()
+ggplot(Data , aes(x = rBVH)) +
+  geom_histogram(aes(y=..density..),bins = 30, fill = "skyblue", color = "black", alpha = 0.7) +
+  geom_density(color = "pink",size=1)+
+  theme_minimal()
+
+
+ggplot( Data,aes(x = Date, y = rBMI)) +
+  geom_line(color = "blue") +
+  theme_minimal()
+ggplot(Data , aes(x = rBMI)) +
+  geom_histogram(aes(y=..density..),bins = 30, fill = "skyblue", color = "black", alpha = 0.7) +
+  geom_density(color = "pink",size=1)+
+  theme_minimal()
+
+
+```
+```{r}
+acf(rBVH)
+pacf(rBVH)
+
+acf(rBMI)
+pacf(rBMI)
+
+cor(returns)
+summary(ur.df(rBMI,type="trend"))
+summary(ur.df(rBVH,type="trend"))
+```
+```{r}
+ArchTest(rBVH,lags=1)
+ArchTest(rBMI,lags=1)
+
+```
+```{r}
+jarque.bera.test(rBVH)
+jarque.bera.test(rBMI)
+```
+```{r}
+fit_t <- fitdistr(rBVH, densfun = "t")
+df <- fit_t$estimate["df"]
+m <- fit_t$estimate["m"]
+s <- fit_t$estimate["s"]
+x_std <- (rBVH - m)/s
+
+u <- pt(x_std, df = df)
+ad.test(u, null = punif)
+
+
+
+fit_t <- fitdistr(rBMI, densfun = "t")
+df <- fit_t$estimate["df"]
+m <- fit_t$estimate["m"]
+s <- fit_t$estimate["s"]
+x_std <- (rBMI - m)/s
+
+
+u <- pt(x_std, df = df)
+ad.test(u, null = punif)
+```
+```{r}
+
+# Ước lượng phân phối Student t cho từng biến
+fit_bvh <- fitdistr(rBVH, densfun = "t")  
+fit_bmi <- fitdistr(rBMI, densfun = "t")
+
+# Trích tham số
+params_bvh <- fit_bvh$estimate
+params_bmi <- fit_bmi$estimate
+
+```
+
+
+```{r}
+gofCopula(normalCopula(dim=2,para=0,dispstr ="un"),pseudoReturns,estim.method="mpl",method="Sn",simulation ="mult")
+
+
+gofCopula(tCopula(dim=2,para=0,dispstr = "un",df = 5,df.fixed = TRUE), 
+pseudoReturns, estim.method="mpl",method = "Sn", simulation = "mult")
+
+gofCopula(claytonCopula(para=1, dim=2), pseudoReturns, estim.method="mpl",method = 
+"Sn", simulation = "mult")  
+
+gofCopula(gumbelCopula(para=1.5, dim=2), pseudoReturns, estim.method="mpl",method = 
+"Sn", simulation = "mult")  
+
+gofCopula(frankCopula(para=1, dim=2), pseudoReturns, estim.method="mpl",method = 
+"Sn", simulation = "mult")  
+
+gofCopula(joeCopula(para=1.5, dim=2), pseudoReturns, estim.method="mpl",method = 
+"Sn", simulation = "mult")  
+
+gofCopula(amhCopula(para=0.5, dim=2), pseudoReturns, estim.method="mpl",method = 
+"Sn", simulation = "mult")  
+```
+```{r}
+fitCopula(amhCopula(dim = 2), pseudoReturns, method = "mpl") 
+```
+```{r}
+fitCopula(normalCopula(dim = 2), pseudoReturns, method = "mpl") 
+```
+```{r}
+fitCopula(tCopula(dim = 2), pseudoReturns, method = "mpl") 
+```
+```{r}
+returnsCop <- tCopula(para=0.4572,dim=2,dispstr = "un", df = 5.6398, df.fixed = TRUE)
 ```
 
 ```{r}
-gofCopula(normalCopula(dim=3,para=c(0,0,0),dispstr ="un"),returns,estim.method="mpl",method="Sn",simulation ="mult")
+sm<- rCopula( 10000,returnsCop) 
+```
+```{r}
+plot(sm, main = "lợi suất chuẩn hóa ", 
+     xlab = "V1", ylab = "V2", col = "blue", pch = 19, cex = 0.6)
+
+```
+```{r}
+sm_rBVH <- qt(sm[,1], df = params_bvh["df"]) * params_bvh["s"] + params_bvh["m"]
+sm_rBMI <- qt(sm[,2], df = params_bmi["df"]) * params_bmi["s"] + params_bmi["m"]
+
+
+joint_sample <- cbind(sm_rBVH, sm_rBMI)
+```
+
+```{r}
+df <- data.frame(rBVH = sm_rBVH, rBMI = sm_rBMI)
+
+ggplot(df, aes(x = rBVH, y = rBMI)) +
+  geom_point(alpha = 0.2, color = "blue") +
+    theme_minimal()
+```
+```{r}
+returns <- cbind(sm_rBVH, sm_rBMI)
+
+# Lợi suất kỳ vọng và ma trận hiệp phương sai
+mu <- colMeans(returns)
+cov_matrix <- cov(returns)
+
+library(quadprog)
+
+Dmat <- cov_matrix
+dvec <- rep(0, 2)
+Amat <- cbind(rep(1, 2))  # w1 + w2 = 1
+bvec <- 1
+meq <- 1
+
+opt <- solve.QP(Dmat, dvec, Amat, bvec, meq)
+
+w_opt <- opt$solution
+names(w_opt) <- c("w_BVH", "w_BMI")
+w_opt
+
+
+mu_port <- sum(w_opt * mu)
+sd_port <- sqrt(t(w_opt) %*% cov_matrix %*% w_opt)
+
+cat("Lợi suất kỳ vọng:", round(mu_port, 4), "\n")
+cat("Độ lệch chuẩn:", round(sd_port, 4), "\n")
 
 ```
 
