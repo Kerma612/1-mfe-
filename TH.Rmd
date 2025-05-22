@@ -1,0 +1,26 @@
+---
+title: "Untitled"
+author: "Trần Thúy"
+date: "`r Sys.Date()`"
+output: word_document
+---
+```{r}
+library(dplyr)
+library(copula)
+library(readxl)
+Data <- readxl::read_excel("D:/NEU/TOKT/Bắt buộc/Đề án/Data - Copula.xlsx", 
+    col_types = c("date", "numeric", "numeric", 
+        "numeric", "numeric", "numeric", 
+        "numeric"))
+
+Data <- na.omit(Data)
+attach(Data)
+returns <- Data %>% dplyr::select (rBVH,rBMI,rCTG)
+Prices <- Data %>% dplyr::select (pBVH,pBMI,pCTG)
+```
+
+```{r}
+gofCopula(normalCopula(dim=3,para=c(0,0,0),dispstr ="un"),returns,estim.method="mpl",method="Sn",simulation ="mult")
+
+```
+
